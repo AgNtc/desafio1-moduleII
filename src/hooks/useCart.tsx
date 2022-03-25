@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext, useState } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { api } from '../services/api';
 import { Product, Stock } from '../types';
@@ -28,10 +28,24 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     if (storagedCart) {
       return JSON.parse(storagedCart);
     }
-
     return [];
   });
  
+  const prevCartRef = useRef<Product[]>();
+  useEffect(() => {
+    prevCartRef.current = cart;
+  });
+
+    const cartPrevState = prevCartRef.current ?? cart;
+
+    useEffect(() => {
+      if (cartPrevState !== cart) {
+        setCart(cart);
+        localStorage.setItem("@RocketShoes:cart", JSON.stringify(cart));
+      }
+    }, [cart, cartPrevState]);
+
+
   const addProduct = async (productId: number) => {
     try {
       const updatedCart = [...cart];
@@ -60,7 +74,7 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
       }
 
       setCart(updatedCart);
-      localStorage.setItem('@RocketShoes:cart', JSON.stringify(updatedCart))
+      
     } catch {
       toast.error("Erro na adição do produto");
     }
@@ -74,10 +88,6 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
       if(productIndex >= 0){
         updatedCart.splice(productIndex, 1);
         setCart(updatedCart);
-        localStorage.setItem(
-          "@RocketShoes:cart",
-          JSON.stringify(updatedCart)
-        );
       }else{
         throw Error()
       }
@@ -105,25 +115,26 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
 
       const updatedCart = [...cart];
       const productExists = updatedCart.find(
-        (product) => product.id === productId
+        product => product.id === productId
       );
        if (productExists) {
          productExists.amount = amount;
+         setCart(updatedCart);
+         
        } else {
          const product = await api.get(`/products/${productId}`);
 
          const newProduct = {
            ...product.data,
            amount: 1,
-         };
+         };         
          updatedCart.push(newProduct);
        }
-
     } catch {
       toast.error("Erro na alteração de quantidade do produto");
     }
   };
-
+  
   return (
     <CartContext.Provider
       value={{ cart, addProduct, removeProduct, updateProductAmount }}
